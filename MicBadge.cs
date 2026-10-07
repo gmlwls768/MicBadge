@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Imaging;
+using System.Drawing.Text;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -77,6 +79,14 @@ class MicBadge : Form
     const string RUN_KEY = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")] static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr hdcDst, IntPtr pptDst, ref Size size, IntPtr hdcSrc, ref Point pptSrc, int key, ref BLENDFUNCTION blend, int flags);
+    [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+    [DllImport("gdi32.dll")] static extern bool DeleteDC(IntPtr hdc);
+    [DllImport("gdi32.dll")] static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr obj);
+    struct BLENDFUNCTION { public byte BlendOp, BlendFlags, SourceConstantAlpha, AlphaFormat; }
 
     enum State { Unknown, On, Off }
     State state = State.Unknown;
@@ -92,6 +102,7 @@ class MicBadge : Form
     string device = "";                     // 녹음 장치 이름에 이 글자가 있으면 그 장치, 비었거나 없으면 기본 장치
     double delaySec = 0.3;                  // 완전한 0 이 이만큼 이어지면 꺼짐 (0.1초 ~ 10분)
     bool lockSize;
+    bool transparent;                       // 배경 없이 글자만, 상태는 글자 색으로
     readonly float scale;
     readonly int grip;                      // 오른쪽·아래 가장자리에서 이 픽셀 안쪽을 끌면 크기 조절
     int dragMode;                           // 0 이동, 1 너비, 2 높이, 3 둘 다
@@ -108,9 +119,6 @@ class MicBadge : Form
         ShowInTaskbar = false;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
-        DoubleBuffered = true;
-        ResizeRedraw = true;
-        Opacity = 0.9;
         using (Graphics g = CreateGraphics()) scale = g.DpiX / 96f;
         grip = (int)(6 * scale);
         MinimumSize = new Size((int)(30 * scale), (int)(14 * scale));
@@ -143,12 +151,13 @@ class MicBadge : Form
         get
         {
             CreateParams cp = base.CreateParams;
-            cp.ExStyle |= 0x08000000 | 0x80;    // WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW
+            cp.ExStyle |= 0x08000000 | 0x80000 | 0x80;  // WS_EX_NOACTIVATE | WS_EX_LAYERED | WS_EX_TOOLWINDOW
             return cp;
         }
     }
 
-    protected override void OnLoad(EventArgs e) { base.OnLoad(e); OpenMic(); }
+    protected override void OnLoad(EventArgs e) { base.OnLoad(e); Render(); OpenMic(); }
+    protected override void OnSizeChanged(EventArgs e) { base.OnSizeChanged(e); Render(); }
     protected override void OnFormClosed(FormClosedEventArgs e) { CloseMic(); base.OnFormClosed(e); }
 
     // 켜져 있는 녹음 장치의 이름과 장치
@@ -265,17 +274,44 @@ class MicBadge : Form
     {
         if (s == state) return;
         state = s;
-        Invalidate();
+        Render();
     }
 
-    protected override void OnPaint(PaintEventArgs e)
+    Bitmap Draw()
     {
-        Color bg = state == State.Off ? Color.FromArgb(200, 30, 30) : state == State.On ? Color.FromArgb(30, 130, 60) : Color.Gray;
+        Color c = transparent
+            ? (state == State.Off ? Color.FromArgb(240, 50, 50) : state == State.On ? Color.FromArgb(40, 205, 90) : Color.FromArgb(160, 160, 160))
+            : (state == State.Off ? Color.FromArgb(200, 30, 30) : state == State.On ? Color.FromArgb(30, 130, 60) : Color.Gray);
         string text = state == State.Off ? "MIC OFF" : state == State.On ? "MIC ON" : "MIC ?";
-        e.Graphics.Clear(bg);
-        float px = Math.Max(6f, Math.Min(Height * 0.6f, Width / 4.8f));     // 배지 크기에 맞춘 글자 크기
-        using (Font f = new Font("Segoe UI", px, FontStyle.Bold, GraphicsUnit.Pixel))
-            TextRenderer.DrawText(e.Graphics, text, f, ClientRectangle, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        Bitmap b = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
+        using (Graphics g = Graphics.FromImage(b))
+        {
+            g.Clear(transparent ? Color.FromArgb(1, 0, 0, 0) : Color.FromArgb(230, c));   // 완전 투명(0)이면 클릭이 통과해 끌 수 없다
+            g.TextRenderingHint = TextRenderingHint.AntiAlias;
+            float px = Math.Max(6f, Math.Min(Height * 0.6f, Width / 4.8f));     // 배지 크기에 맞춘 글자 크기
+            using (Font f = new Font("Segoe UI", px, FontStyle.Bold, GraphicsUnit.Pixel))
+            using (Brush br = new SolidBrush(transparent ? c : Color.White))
+            using (StringFormat sf = new StringFormat(StringFormatFlags.NoWrap | StringFormatFlags.NoClip))
+            {
+                sf.Alignment = sf.LineAlignment = StringAlignment.Center;
+                g.DrawString(text, f, br, new RectangleF(0, 0, Width, Height), sf);
+            }
+        }
+        return b;
+    }
+
+    // 픽셀마다 투명도를 갖는 창이라 WM_PAINT 대신 그린 그림을 통째로 넘긴다
+    void Render()
+    {
+        if (!IsHandleCreated) return;
+        using (Bitmap b = Draw())
+        {
+            IntPtr screen = GetDC(IntPtr.Zero), mem = CreateCompatibleDC(screen), hb = b.GetHbitmap(Color.FromArgb(0)), old = SelectObject(mem, hb);
+            Size size = b.Size; Point src = Point.Empty;
+            BLENDFUNCTION bf = new BLENDFUNCTION { SourceConstantAlpha = 255, AlphaFormat = 1 };    // AC_SRC_ALPHA
+            UpdateLayeredWindow(Handle, screen, IntPtr.Zero, ref size, mem, ref src, 0, ref bf, 2);  // ULW_ALPHA
+            SelectObject(mem, old); DeleteObject(hb); DeleteDC(mem); ReleaseDC(IntPtr.Zero, screen);
+        }
     }
 
     int Zone(Point p)
@@ -323,6 +359,7 @@ class MicBadge : Form
                 if (kv.Length == 2) d[kv[0]] = kv[1];
             }
             if (d.ContainsKey("device")) device = d["device"];
+            transparent = d.ContainsKey("transparent") && d["transparent"] == "1";
             Point pt = new Point(int.Parse(d["x"]), int.Parse(d["y"]));
             foreach (Screen sc in Screen.AllScreens) if (sc.Bounds.Contains(pt)) Location = pt;
             Size = new Size(int.Parse(d["w"]), int.Parse(d["h"]));
@@ -334,8 +371,8 @@ class MicBadge : Form
 
     void SaveSettings()
     {
-        File.WriteAllText(iniFile, string.Format(CultureInfo.InvariantCulture, "x={0}\r\ny={1}\r\nw={2}\r\nh={3}\r\ndelay={4}\r\nlock={5}\r\ndevice={6}\r\n",
-            Left, Top, Width, Height, delaySec, lockSize ? 1 : 0, device));
+        File.WriteAllText(iniFile, string.Format(CultureInfo.InvariantCulture, "x={0}\r\ny={1}\r\nw={2}\r\nh={3}\r\ndelay={4}\r\nlock={5}\r\ndevice={6}\r\ntransparent={7}\r\n",
+            Left, Top, Width, Height, delaySec, lockSize ? 1 : 0, device, transparent ? 1 : 0));
     }
 
     void ShowSettings()
@@ -377,6 +414,7 @@ class MicBadge : Form
             NumericUpDown delay = Number(0.1m, 600m, (decimal)delaySec, 1);
             NumericUpDown w = Number(MinimumSize.Width, 4000, Width, 0), h = Number(MinimumSize.Height, 4000, Height, 0);
             CheckBox locked = Check(T("크기 잠금 (끌어서 크기 조절 안 함)", "Lock size (no resizing by dragging)"), lockSize);
+            CheckBox clear = Check(T("배경 투명 (상태는 글자 색으로 표시)", "Transparent background (state shown by text color)"), transparent);
             CheckBox autostart = Check(T("Windows 시작 시 자동 실행", "Start with Windows"), run.GetValue("MicBadge") != null);
 
             t.Controls.Add(Caption(T("마이크", "Microphone")), 0, 0); t.Controls.Add(mic, 1, 0);
@@ -387,7 +425,8 @@ class MicBadge : Form
             t.Controls.Add(Caption(T("너비", "Width")), 0, 3); t.Controls.Add(w, 1, 3);
             t.Controls.Add(Caption(T("높이", "Height")), 0, 4); t.Controls.Add(h, 1, 4);
             t.Controls.Add(locked, 0, 5); t.SetColumnSpan(locked, 2);
-            t.Controls.Add(autostart, 0, 6); t.SetColumnSpan(autostart, 2);
+            t.Controls.Add(clear, 0, 6); t.SetColumnSpan(clear, 2);
+            t.Controls.Add(autostart, 0, 7); t.SetColumnSpan(autostart, 2);
 
             FlowLayoutPanel buttons = new FlowLayoutPanel();
             buttons.AutoSize = true;
@@ -396,7 +435,7 @@ class MicBadge : Form
             ok.Text = T("확인", "OK"); ok.DialogResult = DialogResult.OK; ok.AutoSize = true;
             cancel.Text = T("취소", "Cancel"); cancel.DialogResult = DialogResult.Cancel; cancel.AutoSize = true;
             buttons.Controls.Add(ok); buttons.Controls.Add(cancel);
-            t.Controls.Add(buttons, 0, 7); t.SetColumnSpan(buttons, 2);
+            t.Controls.Add(buttons, 0, 8); t.SetColumnSpan(buttons, 2);
             f.AcceptButton = ok; f.CancelButton = cancel;
 
             if (f.ShowDialog() != DialogResult.OK) return;
@@ -404,7 +443,9 @@ class MicBadge : Form
             if (picked != device) { device = picked; CloseMic(); OpenMic(); }
             delaySec = (double)delay.Value;
             lockSize = locked.Checked;
+            transparent = clear.Checked;
             Size = new Size((int)w.Value, (int)h.Value);
+            Render();
             if (autostart.Checked) run.SetValue("MicBadge", "\"" + Application.ExecutablePath + "\"");
             else run.DeleteValue("MicBadge", false);
             SaveSettings();

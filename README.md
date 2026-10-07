@@ -12,7 +12,7 @@ long as that noise is there, the mic is on; when the signal drops to
 complete silence, the physical mute button has been pressed.
 
 ![state](https://img.shields.io/badge/status-active-brightgreen)
-![version](https://img.shields.io/badge/version-1.0.0-blue)
+![version](https://img.shields.io/badge/version-1.1.0-blue)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-lightgrey)
 
 ![MIC ON](docs/badge-on.png) ![MIC OFF](docs/badge-off.png) ![MIC ?](docs/badge-unknown.png)
@@ -27,6 +27,9 @@ complete silence, the physical mute button has been pressed.
 - **Put it anywhere, any size** — drag the badge to move it, drag its right
   or bottom edge to resize it. The text scales with the badge. Position and
   size are remembered.
+- **Transparent mode** — hide the colored background and show only the
+  text, colored green, red or grey by state, so the badge covers as little
+  of the screen as possible.
 - **Pick the microphone** — use the default recording device or choose a
   specific one.
 - **Adjustable mute delay** — how long the signal has to stay silent before
@@ -44,8 +47,14 @@ powered off).
 
 ![MIC ON](docs/badge-on.png) ![MIC OFF](docs/badge-off.png) ![MIC ?](docs/badge-unknown.png)
 
+With *Transparent background* turned on, only the text is shown and its
+color carries the state.
+
+![MIC ON](docs/text-on.png) ![MIC OFF](docs/text-off.png) ![MIC ?](docs/text-unknown.png)
+
 Settings — right-click the badge and choose *Settings...*: microphone, mute
-delay, exact badge size, size lock, and start with Windows.
+delay, exact badge size, size lock, transparent background, and start with
+Windows.
 
 ![Settings](docs/settings-en.png)
 
@@ -79,6 +88,7 @@ uses ships with Windows.
 | Mute delay (seconds) | The badge turns to MIC OFF after this long with no sound at all. Default 0.3, range 0.1–600. |
 | Width / Height | Exact badge size in pixels, as an alternative to dragging. |
 | Lock size | Turns off resizing by dragging, so the edges only move the badge. |
+| Transparent background | Hides the background and shows only the text, colored by state (green / red / grey). The badge can still be dragged and resized by its invisible area. |
 | Start with Windows | Launches MicBadge when you sign in. |
 
 Settings are stored in `MicBadge.ini` next to the `.exe`. If you move the
@@ -151,6 +161,8 @@ MIT — see [LICENSE](LICENSE).
 - **원하는 위치, 원하는 크기** — 배지를 끌어서 옮기고, 오른쪽·아래
   가장자리를 끌어서 크기를 바꿉니다. 글자는 배지 크기에 맞춰집니다. 위치와
   크기는 기억됩니다.
+- **배경 투명 모드** — 색 배경을 없애고 글자만 표시합니다. 상태는 글자
+  색(초록·빨강·회색)으로 나타나서 화면을 가장 적게 가립니다.
 - **마이크 선택** — 기본 녹음 장치를 쓰거나 특정 장치를 고를 수 있습니다.
 - **꺼짐 판정 시간 조절** — 소리가 얼마나 오래 없어야 MIC OFF 로 바꿀지
   0.1초부터 10분까지 정할 수 있습니다.
@@ -166,8 +178,13 @@ MIT — see [LICENSE](LICENSE).
 
 ![MIC ON](docs/badge-on.png) ![MIC OFF](docs/badge-off.png) ![MIC ?](docs/badge-unknown.png)
 
+*배경 투명* 을 켜면 글자만 보이고, 상태는 글자 색으로 나타납니다.
+
+![MIC ON](docs/text-on.png) ![MIC OFF](docs/text-off.png) ![MIC ?](docs/text-unknown.png)
+
 설정 — 배지를 우클릭하고 *설정...* 을 고릅니다. 마이크, 꺼짐 판정 시간,
-배지 크기, 크기 잠금, Windows 시작 시 자동 실행을 정할 수 있습니다.
+배지 크기, 크기 잠금, 배경 투명, Windows 시작 시 자동 실행을 정할 수
+있습니다.
 
 ![설정](docs/settings-ko.png)
 
@@ -200,6 +217,7 @@ Windows 10 또는 11 이 필요합니다. 따로 설치할 것은 없습니다 �
 | 꺼짐 판정 시간(초) | 이 시간 동안 소리가 전혀 없으면 MIC OFF 로 바뀝니다. 기본 0.3, 범위 0.1~600. |
 | 너비 / 높이 | 끌어서 맞추는 대신 배지 크기를 픽셀로 직접 지정합니다. |
 | 크기 잠금 | 끌어서 크기를 바꾸는 기능을 끕니다. 가장자리를 끌어도 이동만 합니다. |
+| 배경 투명 | 배경을 없애고 글자만 표시하며, 상태는 글자 색(초록 / 빨강 / 회색)으로 나타납니다. 보이지 않는 배지 영역을 끌어서 그대로 이동·크기 조절할 수 있습니다. |
 | Windows 시작 시 자동 실행 | 로그인할 때 MicBadge 를 실행합니다. |
 
 설정은 `.exe` 옆의 `MicBadge.ini` 에 저장됩니다. `.exe` 를 다른 폴더로
