@@ -53,8 +53,9 @@ delay, exact badge size, size lock, and start with Windows.
 
 1. Download `MicBadge.exe` from the
    [latest release](https://github.com/gmlwls768/MicBadge/releases/latest).
-2. Put it in a folder of its own (its settings file is saved next to it) and
-   run it. The badge appears in the top-right corner of the main screen.
+2. Put it in any folder you like and run it. Once you change a setting, a
+   single `MicBadge.ini` file appears next to the `.exe`. The badge shows up
+   in the top-right corner of the main screen.
 3. Press the mute button on your headset — the badge switches between
    **MIC ON** and **MIC OFF**.
 
@@ -174,8 +175,8 @@ MIT — see [LICENSE](LICENSE).
 
 1. [최신 릴리스](https://github.com/gmlwls768/MicBadge/releases/latest)에서
    `MicBadge.exe` 를 받습니다.
-2. 전용 폴더에 넣고(설정 파일이 exe 옆에 저장됩니다) 실행합니다. 배지가 주
-   모니터의 오른쪽 위에 나타납니다.
+2. 원하는 폴더에 두고 실행합니다. 설정을 바꾸면 exe 옆에 `MicBadge.ini`
+   파일 하나가 생깁니다. 배지는 주 모니터의 오른쪽 위에 나타납니다.
 3. 헤드셋의 음소거 버튼을 눌러 보세요. 배지가 **MIC ON** 과 **MIC OFF**
    사이에서 바뀝니다.
 
